@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from retrieval import retrieve
+from src.retrieval import retrieve
 
 load_dotenv()
 

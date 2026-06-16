@@ -28,7 +28,7 @@ def main(folder_path):
     model = SentenceTransformer('all-MiniLM-L6-v2')
 
     print("Initializing ChromaDB persistent client...")
-    client = chromadb.PersistentClient(path="./chroma_store/")
+    client = chromadb.PersistentClient(path="./store/")
     # Using cosine distance to filter out chunks with cosine distance > 0.7 later
     collection = client.get_or_create_collection(
         name="company_docs",
