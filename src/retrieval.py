@@ -1,7 +1,7 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-# Initialize model and db connection globally
+# Initialize model and db connection globally so they aren't reloaded on every function call
 model = SentenceTransformer('all-MiniLM-L6-v2')
 client = chromadb.PersistentClient(path="./store/")
 collection = client.get_or_create_collection(
@@ -27,6 +27,7 @@ def retrieve(query: str, top_k: int = 5) -> list[dict]:
     distances = results['distances'][0]
     
     for doc, meta, dist in zip(docs, metadatas, distances):
+        # Filter out chunks with cosine distance > 0.7 (weak matches)
         if dist > 0.7:
             continue
             

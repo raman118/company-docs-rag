@@ -54,6 +54,7 @@ def ask(query: str) -> str:
         
     genai.configure(api_key=api_key)
     
+    # Using gemini-1.5-pro for complex RAG tasks
     model = genai.GenerativeModel(
         model_name="gemini-1.5-pro",
         system_instruction=SYSTEM_PROMPT.strip()

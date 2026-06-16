@@ -23,8 +23,10 @@ with st.sidebar:
                     with open(os.path.join(UPLOAD_DIR, file.name), "wb") as f:
                         f.write(file.getbuffer())
             
-            with st.spinner("Ingesting documents..."):
-                result = subprocess.run(["python", "-m", "src.ingest", "--folder", UPLOAD_DIR], capture_output=True, text=True)
+            with st.spinner("Ingesting documents (this may take a while)..."):
+                # Call ingest.py using subprocess. 
+                # Assumes streamlit is running from the root directory as per instructions.
+                result = subprocess.run(["python", "-m", "src.ingest", UPLOAD_DIR], capture_output=True, text=True)
                 if result.returncode == 0:
                     st.success("Ingestion complete!")
                     with st.expander("Ingestion Logs"):
@@ -37,15 +39,19 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Display conversation history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# Input box at bottom
 if prompt := st.chat_input("Ask a question about the company documents..."):
+    # Display user message
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
+    # Assistant response
     with st.chat_message("assistant"):
         with st.spinner("Retrieving and generating answer..."):
             response = ask(prompt)
