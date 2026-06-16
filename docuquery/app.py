@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import subprocess
-from chat import ask
+from src.chat import ask
 
 st.set_page_config(page_title="DocuQuery", layout="wide")
 st.title("DocuQuery — Company Knowledge Assistant")
@@ -26,7 +26,7 @@ with st.sidebar:
             with st.spinner("Ingesting documents (this may take a while)..."):
                 # Call ingest.py using subprocess. 
                 # Assumes streamlit is running from the root directory as per instructions.
-                result = subprocess.run(["python", "docuquery/ingest.py", UPLOAD_DIR], capture_output=True, text=True)
+                result = subprocess.run(["python", "-m", "src.ingest", UPLOAD_DIR], capture_output=True, text=True)
                 if result.returncode == 0:
                     st.success("Ingestion complete!")
                     with st.expander("Ingestion Logs"):

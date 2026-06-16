@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 
 # Initialize model and db connection globally so they aren't reloaded on every function call
 model = SentenceTransformer('all-MiniLM-L6-v2')
-client = chromadb.PersistentClient(path="./chroma_store/")
+client = chromadb.PersistentClient(path="./store/")
 collection = client.get_or_create_collection(
     name="company_docs",
     metadata={"hnsw:space": "cosine"}
