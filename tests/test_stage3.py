@@ -1,26 +1,20 @@
-import subprocess
 import chromadb
-import os
 import pytest
+from src import config, ingest
 
-print("--- Stage 3: Test Ingestion ---")
-
-def test_stage3():
+def test_stage3_ingestion():
+    """Stage 3: Test Document Ingestion Pipeline"""
     try:
-        # Use the absolute path or relative path to the project file
-        # Ensure we are in the root and calling docuquery/ingest.py
-        # But wait, ingest.py uses ./chroma_store/ relative to where it's run.
-        # Let's run it and then check.
-        result = subprocess.run(["python", "-m", "src.ingest", "./data/sample_docs/"], capture_output=True, text=True)
-        print(result.stdout)
-        if result.returncode != 0:
-            pytest.fail(f"Ingestion process FAIL: {result.stderr}")
+        # Run ingestion with reset to ensure clean state
+        summary = ingest.ingest_folder(str(config.SAMPLE_DOCS_DIR), reset=True)
         
-        client = chromadb.PersistentClient(path="./store/")
-        collection = client.get_collection(name="company_docs")
-        count = collection.count()
-        print(f"Total chunks stored: {count}")
+        assert summary["processed"] > 0
+        assert summary["chunks"] > 0
         
-        assert count > 0
+        # Verify in ChromaDB
+        client = chromadb.PersistentClient(path=str(config.STORE_DIR))
+        collection = client.get_collection(name=config.CHROMA_COLLECTION)
+        assert collection.count() == summary["chunks"]
+        
     except Exception as e:
-        pytest.fail(f"Ingestion Test: FAIL ({e})")
+        pytest.fail(f"Ingestion Test failed: {e}")
