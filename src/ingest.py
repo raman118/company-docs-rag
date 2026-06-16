@@ -3,10 +3,13 @@ import sys
 import glob
 import fitz  # PyMuPDF
 import chromadb
-import argparse
 from sentence_transformers import SentenceTransformer
 
 def chunk_text(text, chunk_size=500, overlap=50):
+    """
+    Chunks text into sizes of roughly `chunk_size` words with `overlap` words.
+    Using simple word splitting to approximate tokens.
+    """
     words = text.split()
     chunks = []
     start = 0
@@ -26,6 +29,7 @@ def main(folder_path):
 
     print("Initializing ChromaDB persistent client...")
     client = chromadb.PersistentClient(path="./store/")
+    # Using cosine distance to filter out chunks with cosine distance > 0.7 later
     collection = client.get_or_create_collection(
         name="company_docs",
         metadata={"hnsw:space": "cosine"}
@@ -79,13 +83,7 @@ def main(folder_path):
     print("Ingestion complete.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", default="data/sample_docs", help="Folder path to ingest")
-    args, unknown = parser.parse_known_args()
-    
-    # Check if a positional argument was provided instead
-    folder = args.folder
-    if not os.path.exists(folder) and len(unknown) > 0:
-        folder = unknown[0]
-        
-    main(folder)
+    if len(sys.argv) < 2:
+        print("Usage: python ingest.py <folder_path>")
+        sys.exit(1)
+    main(sys.argv[1])
