@@ -47,8 +47,8 @@ docuquery/
 - Anthropic API Key
 
 ```bash
-git clone https://github.com/your-repo/docuquery.git
-cd docuquery
+git clone https://github.com/raman118/company-docs-rag
+cd company-docs-rag
 pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
