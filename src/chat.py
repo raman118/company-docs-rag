@@ -1,65 +1,83 @@
-import os
-from dotenv import load_dotenv
+import logging
 import google.generativeai as genai
-from src.retrieval import retrieve
+from src import config, retrieval
 
-load_dotenv()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(asctime)s — %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
-You are a company knowledge assistant. Your sole purpose is to answer questions using the information retrieved from the company's internal documents — which may include PDFs, FAQs, manuals, and policy files.
+You are DocuQuery, a company knowledge assistant. Your sole purpose is to answer questions using ONLY the information retrieved from the company's internal documents.
 
 ## Core Behavior
-- Answer ONLY from the provided document chunks in the context below.
-- If the retrieved context does not contain enough information to answer the question, say exactly: "I don't have enough information in the provided documents to answer this. Please consult the relevant team or check the source document directly."
+- Answer ONLY from the provided document chunks enclosed in <retrieved_chunks> tags.
+- If the retrieved context does not contain sufficient information, respond with exactly: "I don't have enough information in the provided documents to answer this. Please consult the relevant team or check the source document directly."
 - Never fabricate, infer, or extrapolate beyond what is explicitly stated in the retrieved chunks.
-- Never use your general training knowledge to fill gaps. If it's not in the docs, it doesn't exist for you.
+- Never use your training knowledge to fill gaps.
 
 ## Citation Rules
-- Every factual claim must be followed by an inline citation in the format: [Source: <document_name>, Page/Section: <identifier>]
-- If multiple chunks support a claim, cite all of them.
-- At the end of your response, include a "References" section listing all cited sources.
-
-## Response Format
-1. Answer the question concisely and directly.
-2. Use inline citations after every factual statement.
-3. End with a "References" block.
-4. If the question has multiple parts, address each part separately with its own citations.
+- Every factual claim must include an inline citation: [Source: <filename>, Page: <number>]
+- At the end of your response, include a "## References" section listing all cited sources.
 
 ## Conflict Handling
-If two retrieved chunks contradict each other, explicitly flag it:
-"Note: The documents contain conflicting information on this."
-Do not resolve the conflict yourself.
+- If two chunks contradict each other, explicitly flag it: "Note: The documents contain conflicting information on this topic."
+- Do not resolve conflicts. Surface them.
 
 ## Tone
-Professional, neutral, and concise. No filler phrases. No apologies. No speculation.
+Professional, neutral, concise. No filler phrases. No apologies. No speculation.
 """
 
-def ask(query: str) -> str:
-    chunks = retrieve(query)
+def ask(query: str, top_k: int = config.TOP_K) -> str:
+    """Orchestrates the RAG flow: retrieval -> prompt construction -> generation."""
+    
+    # Sanitize query to prevent XML tag injection
+    safe_query = query.replace("<", "&lt;").replace(">", "&gt;")
+    
+    # 1. Retrieval
+    chunks = retrieval.retrieve(safe_query, top_k=top_k)
     
     if not chunks:
+        logger.warning("No relevant chunks found. Returning fallback message.")
         return "I don't have enough information in the provided documents to answer this. Please consult the relevant team or check the source document directly."
     
-    context_blocks = []
-    for i, chunk in enumerate(chunks):
-        block = f"[CHUNK {i+1}]\nSource: {chunk['source']}\nSection: {chunk['page']}\nContent: {chunk['content']}"
-        context_blocks.append(block)
+    # 2. Format Context
+    chunks_xml = retrieval.format_chunks_for_prompt(chunks)
+    
+    # 3. Configure Gemini
+    if not config.GEMINI_API_KEY:
+        logger.error("GEMINI_API_KEY not found in configuration.")
+        return "Error: GEMINI_API_KEY is not configured."
         
-    context_text = "\n\n".join(context_blocks)
-    user_message = f"<retrieved_chunks>\n{context_text}\n</retrieved_chunks>\n\nQuery: {query}"
+    genai.configure(api_key=config.GEMINI_API_KEY)
     
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return "Error: GEMINI_API_KEY not found in environment. Please add it to your .env file."
+    try:
+        model = genai.GenerativeModel(
+            model_name=config.GEMINI_MODEL,
+            system_instruction=SYSTEM_PROMPT.strip()
+        )
         
-    genai.configure(api_key=api_key)
-    
-    # Using gemini-1.5-pro for complex RAG tasks
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-pro",
-        system_instruction=SYSTEM_PROMPT.strip()
-    )
-    
-    response = model.generate_content(user_message)
-    
-    return response.text
+        prompt = f"{chunks_xml}\n\nUser Question: {safe_query}"
+        
+        logger.info(f"Calling {config.GEMINI_MODEL} for generation...")
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=config.MAX_OUTPUT_TOKENS,
+                temperature=0.0  # Zero temperature for deterministic RAG
+            )
+        )
+        
+        # Log token usage if available
+        if hasattr(response, 'usage_metadata'):
+            usage = response.usage_metadata
+            logger.info(f"Token usage - Prompt: {usage.prompt_token_count}, Response: {usage.candidates_token_count}")
+        
+        return response.text
+
+    except Exception as e:
+        logger.error(f"Error during generation: {str(e)}")
+        return f"Error during generation: {str(e)}"

@@ -1,37 +1,24 @@
-import sys
-import os
+import pytest
+from src import retrieval
 
-# Retrieval test
-
-from src.retrieval import retrieve
-
-print("--- Stage 4: Test Retrieval ---")
-
-def test_stage4():
+def test_stage4_retrieval():
+    """Stage 4: Test Semantic Retrieval and Filtering"""
     queries = [
         ("how many days of annual leave do employees get", True),
-        ("what is the password expiry policy", True),
+        ("what is the password expiry policy", False), # Not in sample docs provided in stage 2 rewrite
         ("how do I get VPN access", True),
         ("what is the refund timeline", True),
         ("xyz123 gibberish query that should return no results", False)
     ]
 
-    overall_pass = True
-
-    for query_text, expected_results in queries:
-        print(f"\nQuery: {query_text}")
-        results = retrieve(query_text)
-        print(f"Number of chunks retrieved: {len(results)}")
+    for query_text, should_have_results in queries:
+        results = retrieval.retrieve(query_text)
         
-        if len(results) > 0:
-            top = results[0]
-            print(f"Top chunk source: {top['source']}, score: {top['score']:.4f}")
-            
-        if expected_results:
-            if len(results) == 0:
-                overall_pass = False
+        if should_have_results:
+            assert len(results) > 0, f"Query '{query_text}' failed to return results."
+            assert "content" in results[0]
+            assert "source" in results[0]
+            assert "score" in results[0]
+            assert results[0]["score"] <= 0.7
         else:
-            if len(results) > 0:
-                overall_pass = False
-
-    assert overall_pass
+            assert len(results) == 0, f"Query '{query_text}' unexpectedly returned results."

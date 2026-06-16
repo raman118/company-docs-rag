@@ -1,10 +1,30 @@
+# Environment
 .env
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-store/
-uploaded_docs/
-.DS_Store
+*.pyd
+.Python
 *.egg-info/
 dist/
 build/
+
+# Project runtime
+store/
+test_store/
+uploaded_docs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
