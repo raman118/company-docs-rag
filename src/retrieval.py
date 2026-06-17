@@ -19,9 +19,11 @@ _collection = None
 def get_resources():
     """Initializes and returns shared resources."""
     global _model, _client, _collection
+    
     if _model is None:
         logger.info(f"Loading embedding model: {config.EMBEDDING_MODEL}")
         _model = SentenceTransformer(config.EMBEDDING_MODEL)
+    
     if _client is None:
         logger.info(f"Connecting to ChromaDB at: {config.STORE_DIR}")
         _client = chromadb.PersistentClient(path=str(config.STORE_DIR))
@@ -30,6 +32,7 @@ def get_resources():
             metadata={"hnsw:space": "cosine"}
         )
     return _model, _collection
+
 
 def retrieve(query: str, top_k: int = config.TOP_K) -> list[dict]:
     """Retrieves the top_k most relevant document chunks for a query."""
